@@ -180,7 +180,10 @@ class AudioProcessor:
 
         window = np.hanning(len(data))
         spectrum = np.fft.rfft(data * window)
-        mag = np.abs(spectrum)
+        # Scale FFT to approximate dBFS for a full-scale sine.
+        # Window sum/2 gives correct amplitude for Hann window.
+        scale = max(np.sum(window) / 2.0, 1e-12)
+        mag = (np.abs(spectrum) / scale) / np.sqrt(2.0)
         freqs = np.fft.rfftfreq(len(data), 1.0 / self.sample_rate)
 
         band_levels = np.zeros(len(GRAPHIC_EQ_BANDS), dtype=np.float32)

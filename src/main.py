@@ -57,11 +57,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.update_timer = QtCore.QTimer(self)
         self.update_timer.timeout.connect(self._refresh_meter)
-        self.update_timer.start(50)
+        self.update_timer.start(500)
 
         self.spectrum_timer = QtCore.QTimer(self)
         self.spectrum_timer.timeout.connect(self._refresh_spectrum)
-        self.spectrum_timer.start(200)
+        self.spectrum_timer.start(250)
 
         self.audio.start()
 
