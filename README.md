@@ -25,3 +25,8 @@ Edit `config.json` to tune:
 Notes
 - This prototype targets Raspberry Pi OS and uses a USB microphone.
 - For deployment, consider autostart via systemd or desktop autostart.
+
+Dependencies
+- libffi-dev
+- libopenblas0, libopenblas-dev
+- portaudio19-dev
