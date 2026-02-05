@@ -27,6 +27,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stack.addWidget(self.range_widget)
         self.stack.addWidget(self.spectrum_widget)
 
+        self.close_button = QtWidgets.QPushButton("Close")
+        self.close_button.setMinimumHeight(40)
+        self.close_button.setStyleSheet("font-size: 18px;")
+        self.close_button.clicked.connect(self.close)
+
+        top_layout = QtWidgets.QHBoxLayout()
+        top_layout.addStretch(1)
+        top_layout.addWidget(self.close_button)
+
         button_layout = QtWidgets.QHBoxLayout()
         self.db_button = self._make_button("dBA")
         self.range_button = self._make_button("Range")
@@ -41,6 +50,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         central = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(central)
+        layout.addLayout(top_layout)
         layout.addWidget(self.stack, 1)
         layout.addLayout(button_layout)
         self.setCentralWidget(central)
