@@ -1,0 +1,9 @@
+{
+  "sample_rate": 48000,
+  "block_size": 1024,
+  "device": null,
+  "calibration_db": 0.0,
+  "range_low_db": 70.0,
+  "range_high_db": 85.0,
+  "spectrum_smooth": 0.6
+}

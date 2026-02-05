@@ -1,0 +1,1 @@
+"""Decibel meter prototype package."""
