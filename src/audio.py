@@ -24,15 +24,15 @@ def load_config(path):
 
 def load_calibration_profile(path):
     if not path or not os.path.exists(path):
-        return {"sens_db": 0.0, "freqs": None, "gains": None}
+        return {"sens_db": None, "freqs": None, "gains": None}
 
     with open(path, "r", encoding="utf-8") as handle:
         lines = [line.strip() for line in handle if line.strip()]
 
     if not lines:
-        return {"sens_db": 0.0, "freqs": None, "gains": None}
+        return {"sens_db": None, "freqs": None, "gains": None}
 
-    sens_db = 0.0
+    sens_db = None
     data_lines = lines
     header = lines[0]
     if "Sens Factor" in header:
@@ -100,7 +100,7 @@ class AudioProcessor:
 
         calibration_path = self._resolve_calibration_path()
         calibration = load_calibration_profile(calibration_path)
-        self._calibration_sens_db = float(calibration["sens_db"])
+        self._calibration_sens_db = calibration["sens_db"]
         self._calibration_freqs = calibration["freqs"]
         self._calibration_gains = calibration["gains"]
 
@@ -140,11 +140,13 @@ class AudioProcessor:
         samples = indata[:, 0].astype(np.float32, copy=False)
         weighted, self._zi = lfilter(self._b, self._a, samples, zi=self._zi)
         rms = np.sqrt(np.mean(weighted ** 2))
-        db = (
-            20 * np.log10(max(rms, 1e-12) / REF_PASCAL)
-            + self.calibration_db
-            + self._calibration_sens_db
-        )
+        if self._calibration_sens_db is not None:
+            dbfs = 20 * np.log10(max(rms, 1e-12))
+            db = dbfs - self._calibration_sens_db + 94.0
+        else:
+            db = 20 * np.log10(max(rms, 1e-12) / REF_PASCAL)
+
+        db += self.calibration_db
 
         with self._lock:
             self._last_db = db
