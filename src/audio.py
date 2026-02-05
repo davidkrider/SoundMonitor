@@ -1,4 +1,6 @@
 import json
+import os
+import re
 import threading
 
 import numpy as np
@@ -18,6 +20,49 @@ GRAPHIC_EQ_BANDS = [
 def load_config(path):
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def load_calibration_profile(path):
+    if not path or not os.path.exists(path):
+        return {"sens_db": 0.0, "freqs": None, "gains": None}
+
+    with open(path, "r", encoding="utf-8") as handle:
+        lines = [line.strip() for line in handle if line.strip()]
+
+    if not lines:
+        return {"sens_db": 0.0, "freqs": None, "gains": None}
+
+    sens_db = 0.0
+    data_lines = lines
+    header = lines[0]
+    if "Sens Factor" in header:
+        match = re.search(r"Sens Factor\s*=\s*([+-]?\d+(?:\.\d+)?)\s*dB", header)
+        if match:
+            sens_db = float(match.group(1))
+        data_lines = lines[1:]
+
+    freqs = []
+    gains = []
+    for line in data_lines:
+        if line.startswith(("#", ";")):
+            continue
+        parts = line.replace(",", " ").split()
+        if len(parts) < 2:
+            continue
+        try:
+            freqs.append(float(parts[0]))
+            gains.append(float(parts[1]))
+        except ValueError:
+            continue
+
+    if len(freqs) < 2:
+        return {"sens_db": sens_db, "freqs": None, "gains": None}
+
+    return {
+        "sens_db": sens_db,
+        "freqs": np.array(freqs, dtype=np.float32),
+        "gains": np.array(gains, dtype=np.float32),
+    }
 
 
 def design_a_weighting(sample_rate):
@@ -41,6 +86,7 @@ class AudioProcessor:
         self.block_size = int(config["block_size"])
         self.device = config.get("device")
         self.calibration_db = float(config.get("calibration_db", 0.0))
+        self.calibration_file = config.get("calibration_file")
         self.spectrum_smooth = float(config.get("spectrum_smooth", 0.6))
 
         self._lock = threading.Lock()
@@ -52,7 +98,20 @@ class AudioProcessor:
         self._b, self._a = design_a_weighting(self.sample_rate)
         self._zi = lfilter_zi(self._b, self._a) * 0.0
 
+        calibration_path = self._resolve_calibration_path()
+        calibration = load_calibration_profile(calibration_path)
+        self._calibration_sens_db = float(calibration["sens_db"])
+        self._calibration_freqs = calibration["freqs"]
+        self._calibration_gains = calibration["gains"]
+
         self._stream = None
+
+    def _resolve_calibration_path(self):
+        if self.calibration_file:
+            return os.path.abspath(self.calibration_file)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        default_path = os.path.join(base_dir, "..", "calibration.txt")
+        return default_path if os.path.exists(default_path) else None
 
     def start(self):
         if self._stream:
@@ -81,7 +140,11 @@ class AudioProcessor:
         samples = indata[:, 0].astype(np.float32, copy=False)
         weighted, self._zi = lfilter(self._b, self._a, samples, zi=self._zi)
         rms = np.sqrt(np.mean(weighted ** 2))
-        db = 20 * np.log10(max(rms, 1e-12) / REF_PASCAL) + self.calibration_db
+        db = (
+            20 * np.log10(max(rms, 1e-12) / REF_PASCAL)
+            + self.calibration_db
+            + self._calibration_sens_db
+        )
 
         with self._lock:
             self._last_db = db
@@ -129,6 +192,16 @@ class AudioProcessor:
                 power = np.mean(mag[mask] ** 2)
                 level = 10 * np.log10(power + 1e-20)
             band_levels[i] = level
+
+        if self._calibration_freqs is not None:
+            corrections = np.interp(
+                GRAPHIC_EQ_BANDS,
+                self._calibration_freqs,
+                self._calibration_gains,
+                left=self._calibration_gains[0],
+                right=self._calibration_gains[-1],
+            )
+            band_levels = band_levels + corrections
 
         with self._lock:
             self._spectrum = (
