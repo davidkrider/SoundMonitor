@@ -25,13 +25,19 @@ class DbDisplayWidget(QtWidgets.QWidget):
 
 
 class RangeBarWidget(QtWidgets.QWidget):
-    def __init__(self, low_db, high_db, min_db=85.0, max_db=105.0, parent=None):
+    def __init__(self, low_db, high_db, min_db=None, max_db=None, parent=None):
         super().__init__(parent)
         self.value = 0.0
         self.low_db = low_db
         self.high_db = high_db
-        self.min_db = min_db
-        self.max_db = max_db
+        if min_db is None or max_db is None:
+            center = (low_db + high_db) / 2.0
+            span = max(20.0, (high_db - low_db) * 8.0)
+            self.min_db = center - span
+            self.max_db = center + span
+        else:
+            self.min_db = min_db
+            self.max_db = max_db
         self.setMinimumHeight(200)
 
     def set_value(self, value):
@@ -48,6 +54,7 @@ class RangeBarWidget(QtWidgets.QWidget):
         rect = self.rect().adjusted(20, 20, -20, -20)
 
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.fillRect(rect, QtGui.QColor("#000000"))
         painter.setPen(QtGui.QPen(QtGui.QColor("#333333"), 2))
         painter.drawRoundedRect(rect, 12, 12)
 
@@ -86,9 +93,15 @@ class RangeBarWidget(QtWidgets.QWidget):
                 painter.setPen(QtGui.QPen(color, width, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
                 painter.drawLine(point_on_circle(center, radius, a0), point_on_circle(center, radius, a1))
 
-        radius = min(rect.width(), rect.height() * 1.1) * 0.45
-        center = QtCore.QPointF(rect.center().x(), rect.bottom() - radius * 0.15)
-        arc_width = max(10.0, radius * 0.12)
+        center = QtCore.QPointF(rect.center().x(), rect.center().y() + rect.height() * 0.1)
+        arc_width = max(10.0, min(rect.width(), rect.height()) * 0.05)
+        max_radius = min(
+            center.x() - rect.left(),
+            rect.right() - center.x(),
+            center.y() - rect.top(),
+            rect.bottom() - center.y(),
+        )
+        radius = max(max_radius - arc_width * 0.6, 10.0)
 
         base_color = QtGui.QColor("#dddddd")
         draw_gradient_arc(center, radius, start_angle, start_angle + sweep_angle, base_color, base_color, arc_width, steps=60)
@@ -109,17 +122,17 @@ class RangeBarWidget(QtWidgets.QWidget):
             tick_angle = angle_for_db(tick_db)
             inner = point_on_circle(center, radius - arc_width * 0.9, tick_angle)
             outer = point_on_circle(center, radius + arc_width * 0.1, tick_angle)
-            painter.setPen(QtGui.QPen(QtGui.QColor("#333333"), 2))
+            painter.setPen(QtGui.QPen(QtGui.QColor("#ffffff"), 2))
             painter.drawLine(inner, outer)
 
         value_angle = angle_for_db(self.value)
         needle_end = point_on_circle(center, radius - arc_width * 0.6, value_angle)
-        painter.setPen(QtGui.QPen(QtGui.QColor("#111111"), 4))
+        painter.setPen(QtGui.QPen(QtGui.QColor("#ffffff"), 4))
         painter.drawLine(center, needle_end)
-        painter.setBrush(QtGui.QBrush(QtGui.QColor("#111111")))
+        painter.setBrush(QtGui.QBrush(QtGui.QColor("#ffffff")))
         painter.drawEllipse(center, 6, 6)
 
-        painter.setPen(QtGui.QColor("#111111"))
+        painter.setPen(QtGui.QColor("#ffffff"))
         painter.setFont(QtGui.QFont("Arial", 24, QtGui.QFont.Bold))
         painter.drawText(rect, QtCore.Qt.AlignCenter, f"{self.value:.1f} dBA")
 

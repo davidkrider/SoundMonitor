@@ -1,7 +1,10 @@
 {
   "sample_rate": 48000,
   "block_size": 1024,
-  "device": "pulse",
+  "device": {
+    "linux": "pulse",
+    "mac": 4
+  },
   "calibration_db": 26.6,
   "range_low_db": 93.0,
   "range_high_db": 97.0,

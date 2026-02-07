@@ -16,6 +16,15 @@ Quick start (prototype)
 2) Run the app:
    python3 -m src.main
 
+macOS notes
+- Install PortAudio for `sounddevice`:
+  brew install portaudio
+- If you see `cffi`/`libffi` errors:
+  brew install libffi
+- Allow microphone access in System Settings > Privacy & Security > Microphone.
+- List available input devices:
+  python3 -m src.main --list-devices
+
 Configuration
 Edit `config.json` to tune:
 - `calibration_db`: offsets the reading for your microphone calibration
@@ -26,7 +35,7 @@ Notes
 - This prototype targets Raspberry Pi OS and uses a USB microphone.
 - For deployment, consider autostart via systemd or desktop autostart.
 
-Dependencies
+Dependencies (Linux)
 - libffi-dev
 - libopenblas0, libopenblas-dev
 - portaudio19-dev

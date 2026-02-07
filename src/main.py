@@ -1,8 +1,10 @@
 import argparse
 import os
+import platform
 import sys
 
 from PyQt5 import QtCore, QtWidgets
+import sounddevice as sd
 
 from .audio import AudioProcessor, load_config
 from .ui_widgets import DbDisplayWidget, RangeBarWidget, SpectrumWidget
@@ -89,20 +91,41 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=None, help="Path to config.json")
     parser.add_argument("--windowed", action="store_true", help="Disable full-screen")
+    parser.add_argument("--list-devices", action="store_true", help="List audio input devices")
     return parser.parse_args()
+
+
+def list_audio_devices():
+    for i, device in enumerate(sd.query_devices()):
+        if device.get("max_input_channels", 0) > 0:
+            print(f"{i}: {device['name']}")
 
 
 def main():
     args = parse_args()
+    if args.list_devices:
+        list_audio_devices()
+        return
     base_dir = os.path.dirname(os.path.abspath(__file__))
     default_config = os.path.join(base_dir, "..", "config.json")
     config_path = args.config or default_config
     config = load_config(os.path.abspath(config_path))
+    device = config.get("device")
+    if isinstance(device, dict):
+        system = platform.system().lower()
+        if system.startswith("darwin"):
+            config["device"] = device.get("mac", device.get("darwin"))
+        elif system.startswith("linux"):
+            config["device"] = device.get("linux")
 
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow(config)
+    system = platform.system().lower()
     if args.windowed:
         window.resize(900, 600)
+        window.show()
+    elif system.startswith("darwin"):
+        window.resize(800, 480)
         window.show()
     else:
         window.showFullScreen()
