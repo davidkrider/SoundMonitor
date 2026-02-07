@@ -9,5 +9,6 @@
   "range_low_db": 93.0,
   "range_high_db": 97.0,
   "spectrum_smooth": 0.6,
-  "update_interval_ms": 250
+  "update_interval_ms": 250,
+  "meter_window_s": 1.0
 }

@@ -133,8 +133,16 @@ class RangeBarWidget(QtWidgets.QWidget):
         painter.drawEllipse(center, 6, 6)
 
         painter.setPen(QtGui.QColor("#ffffff"))
-        painter.setFont(QtGui.QFont("Arial", 24, QtGui.QFont.Bold))
-        painter.drawText(rect, QtCore.Qt.AlignCenter, f"{self.value:.1f} dBA")
+        font = QtGui.QFont("Arial", 24, QtGui.QFont.Bold)
+        painter.setFont(font)
+        font_height = QtGui.QFontMetrics(font).height()
+        text_rect = QtCore.QRectF(
+            rect.left(),
+            center.y() + arc_width * 0.4 + font_height,
+            rect.width(),
+            rect.bottom() - center.y(),
+        )
+        painter.drawText(text_rect, QtCore.Qt.AlignHCenter | QtCore.Qt.AlignTop, f"{self.value:.1f} dBA")
 
 
 class SpectrumWidget(QtWidgets.QWidget):

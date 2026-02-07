@@ -88,12 +88,18 @@ class AudioProcessor:
         self.calibration_db = float(config.get("calibration_db", 0.0))
         self.calibration_file = config.get("calibration_file")
         self.spectrum_smooth = float(config.get("spectrum_smooth", 0.6))
+        self.meter_window_s = float(config.get("meter_window_s", 1.0))
 
         self._lock = threading.Lock()
         self._last_db = 0.0
         self._spectrum = np.zeros(len(GRAPHIC_EQ_BANDS), dtype=np.float32)
         self._ring = np.zeros(self.sample_rate, dtype=np.float32)
         self._ring_idx = 0
+        meter_size = max(1, int(self.sample_rate * self.meter_window_s))
+        self._meter_ring = np.zeros(meter_size, dtype=np.float32)
+        self._meter_idx = 0
+        self._meter_filled = 0
+        self._meter_sum_sq = 0.0
 
         self._b, self._a = design_a_weighting(self.sample_rate)
         self._zi = lfilter_zi(self._b, self._a) * 0.0
@@ -139,17 +145,9 @@ class AudioProcessor:
 
         samples = indata[:, 0].astype(np.float32, copy=False)
         weighted, self._zi = lfilter(self._b, self._a, samples, zi=self._zi)
-        rms = np.sqrt(np.mean(weighted ** 2))
-        if self._calibration_sens_db is not None:
-            dbfs = 20 * np.log10(max(rms, 1e-12))
-            db = dbfs - self._calibration_sens_db + 94.0
-        else:
-            db = 20 * np.log10(max(rms, 1e-12) / REF_PASCAL)
-
-        db += self.calibration_db
 
         with self._lock:
-            self._last_db = db
+            self._append_meter(weighted)
             self._append_ring(samples)
 
     def _append_ring(self, samples):
@@ -163,9 +161,48 @@ class AudioProcessor:
             self._ring[:count - first] = samples[first:]
         self._ring_idx = end % len(self._ring)
 
+    def _append_meter(self, samples):
+        count = len(samples)
+        size = len(self._meter_ring)
+        if count >= size:
+            tail = samples[-size:]
+            self._meter_ring[:] = tail
+            self._meter_idx = 0
+            self._meter_filled = size
+            self._meter_sum_sq = float(np.sum(tail ** 2))
+            return
+
+        end = self._meter_idx + count
+        if end <= size:
+            if self._meter_filled == size:
+                self._meter_sum_sq -= float(np.sum(self._meter_ring[self._meter_idx:end] ** 2))
+            self._meter_ring[self._meter_idx:end] = samples
+            self._meter_sum_sq += float(np.sum(samples ** 2))
+        else:
+            first = size - self._meter_idx
+            if self._meter_filled == size:
+                self._meter_sum_sq -= float(np.sum(self._meter_ring[self._meter_idx:] ** 2))
+                self._meter_sum_sq -= float(np.sum(self._meter_ring[:count - first] ** 2))
+            self._meter_ring[self._meter_idx:] = samples[:first]
+            self._meter_ring[:count - first] = samples[first:]
+            self._meter_sum_sq += float(np.sum(samples ** 2))
+        self._meter_idx = end % size
+        if self._meter_filled < size:
+            self._meter_filled = min(size, self._meter_filled + count)
+
     def get_last_db(self):
         with self._lock:
-            return float(self._last_db)
+            if self._meter_filled == 0:
+                return 0.0
+            rms = np.sqrt(self._meter_sum_sq / float(self._meter_filled))
+            if self._calibration_sens_db is not None:
+                dbfs = 20 * np.log10(max(rms, 1e-12))
+                db = dbfs - self._calibration_sens_db + 94.0
+            else:
+                db = 20 * np.log10(max(rms, 1e-12) / REF_PASCAL)
+            db += self.calibration_db
+            self._last_db = db
+            return float(db)
 
     def get_spectrum(self):
         with self._lock:
