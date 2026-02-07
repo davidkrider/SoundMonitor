@@ -57,13 +57,15 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addLayout(button_layout)
         self.setCentralWidget(central)
 
+        update_interval_ms = int(config.get("update_interval_ms", 250))
+
         self.update_timer = QtCore.QTimer(self)
         self.update_timer.timeout.connect(self._refresh_meter)
-        self.update_timer.start(500)
+        self.update_timer.start(update_interval_ms)
 
         self.spectrum_timer = QtCore.QTimer(self)
         self.spectrum_timer.timeout.connect(self._refresh_spectrum)
-        self.spectrum_timer.start(500)
+        self.spectrum_timer.start(update_interval_ms)
 
         self.audio.start()
 

@@ -8,5 +8,6 @@
   "calibration_db": 26.6,
   "range_low_db": 93.0,
   "range_high_db": 97.0,
-  "spectrum_smooth": 0.6
+  "spectrum_smooth": 0.6,
+  "update_interval_ms": 250
 }

@@ -118,7 +118,7 @@ class RangeBarWidget(QtWidgets.QWidget):
         draw_gradient_arc(center, radius, low_angle, high_angle, green, green, arc_width)
         draw_gradient_arc(center, radius, high_angle, end_angle, green, red, arc_width)
 
-        for tick_db in (self.min_db, self.low_db, 95.0, self.high_db, self.max_db):
+        for tick_db in (self.min_db, 95.0, self.max_db):
             tick_angle = angle_for_db(tick_db)
             inner = point_on_circle(center, radius - arc_width * 0.9, tick_angle)
             outer = point_on_circle(center, radius + arc_width * 0.1, tick_angle)
