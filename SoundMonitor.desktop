@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Sound Monitor
+Exec=python3 -m src.main
+Path=/home/admin/Projects/SoundMonitor
+Icon=/home/admin/Projects/SoundMonitor/assets/sound-monitor-icon.png
+Terminal=false
+Categories=Utility;
