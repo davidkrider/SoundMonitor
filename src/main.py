@@ -3,7 +3,7 @@ import os
 import platform
 import sys
 
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 import sounddevice as sd
 
 from .audio import AudioProcessor, load_config
@@ -121,7 +121,13 @@ def main():
             config["device"] = device.get("linux")
 
     app = QtWidgets.QApplication(sys.argv)
+    icon_path = os.path.join(base_dir, "..", "assets", "sound-monitor-icon.png")
+    if os.path.exists(icon_path):
+        icon = QtGui.QIcon(os.path.abspath(icon_path))
+        app.setWindowIcon(icon)
     window = MainWindow(config)
+    if app.windowIcon().isNull() is False:
+        window.setWindowIcon(app.windowIcon())
     system = platform.system().lower()
     if args.windowed:
         window.resize(900, 600)
