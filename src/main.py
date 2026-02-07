@@ -123,8 +123,16 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     icon_path = os.path.join(base_dir, "..", "assets", "sound-monitor-icon.png")
     if os.path.exists(icon_path):
-        icon = QtGui.QIcon(os.path.abspath(icon_path))
-        app.setWindowIcon(icon)
+        pixmap = QtGui.QPixmap(os.path.abspath(icon_path))
+        if not pixmap.isNull():
+            pixmap = pixmap.scaled(
+                256,
+                256,
+                QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation,
+            )
+            icon = QtGui.QIcon(pixmap)
+            app.setWindowIcon(icon)
     window = MainWindow(config)
     if app.windowIcon().isNull() is False:
         window.setWindowIcon(app.windowIcon())
