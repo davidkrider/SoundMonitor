@@ -1,3 +1,5 @@
+import math
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
@@ -23,7 +25,7 @@ class DbDisplayWidget(QtWidgets.QWidget):
 
 
 class RangeBarWidget(QtWidgets.QWidget):
-    def __init__(self, low_db, high_db, min_db=40.0, max_db=110.0, parent=None):
+    def __init__(self, low_db, high_db, min_db=85.0, max_db=105.0, parent=None):
         super().__init__(parent)
         self.value = 0.0
         self.low_db = low_db
@@ -49,24 +51,73 @@ class RangeBarWidget(QtWidgets.QWidget):
         painter.setPen(QtGui.QPen(QtGui.QColor("#333333"), 2))
         painter.drawRoundedRect(rect, 12, 12)
 
-        def scale(db):
-            return (db - self.min_db) / (self.max_db - self.min_db)
+        start_angle = 225.0
+        sweep_angle = -270.0
 
-        low_x = rect.left() + rect.width() * scale(self.low_db)
-        high_x = rect.left() + rect.width() * scale(self.high_db)
+        def clamp(value, low, high):
+            return max(low, min(value, high))
 
-        red = QtGui.QColor("#b31b1b")
+        def angle_for_db(db):
+            t = (db - self.min_db) / (self.max_db - self.min_db)
+            t = clamp(t, 0.0, 1.0)
+            return start_angle + sweep_angle * t
+
+        def point_on_circle(center, radius, angle_deg):
+            rad = math.radians(angle_deg)
+            return QtCore.QPointF(
+                center.x() + math.cos(rad) * radius,
+                center.y() - math.sin(rad) * radius,
+            )
+
+        def lerp_color(a, b, t):
+            return QtGui.QColor(
+                int(a.red() + (b.red() - a.red()) * t),
+                int(a.green() + (b.green() - a.green()) * t),
+                int(a.blue() + (b.blue() - a.blue()) * t),
+            )
+
+        def draw_gradient_arc(center, radius, start_deg, end_deg, start_color, end_color, width, steps=80):
+            for i in range(steps):
+                t0 = i / steps
+                t1 = (i + 1) / steps
+                a0 = start_deg + (end_deg - start_deg) * t0
+                a1 = start_deg + (end_deg - start_deg) * t1
+                color = lerp_color(start_color, end_color, (t0 + t1) * 0.5)
+                painter.setPen(QtGui.QPen(color, width, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
+                painter.drawLine(point_on_circle(center, radius, a0), point_on_circle(center, radius, a1))
+
+        radius = min(rect.width(), rect.height() * 1.1) * 0.45
+        center = QtCore.QPointF(rect.center().x(), rect.bottom() - radius * 0.15)
+        arc_width = max(10.0, radius * 0.12)
+
+        base_color = QtGui.QColor("#dddddd")
+        draw_gradient_arc(center, radius, start_angle, start_angle + sweep_angle, base_color, base_color, arc_width, steps=60)
+
+        orange = QtGui.QColor("#f28c28")
         green = QtGui.QColor("#2e8b57")
+        red = QtGui.QColor("#b31b1b")
 
-        painter.fillRect(QtCore.QRectF(rect.left(), rect.top(), max(low_x - rect.left(), 0), rect.height()), red)
-        painter.fillRect(QtCore.QRectF(low_x, rect.top(), max(high_x - low_x, 0), rect.height()), green)
-        painter.fillRect(QtCore.QRectF(high_x, rect.top(), max(rect.right() - high_x, 0), rect.height()), red)
+        low_angle = angle_for_db(self.low_db)
+        high_angle = angle_for_db(self.high_db)
+        end_angle = start_angle + sweep_angle
 
-        value_x = rect.left() + rect.width() * scale(self.value)
-        value_x = max(rect.left(), min(value_x, rect.right()))
+        draw_gradient_arc(center, radius, start_angle, low_angle, orange, green, arc_width)
+        draw_gradient_arc(center, radius, low_angle, high_angle, green, green, arc_width)
+        draw_gradient_arc(center, radius, high_angle, end_angle, green, red, arc_width)
 
+        for tick_db in (self.min_db, self.low_db, 95.0, self.high_db, self.max_db):
+            tick_angle = angle_for_db(tick_db)
+            inner = point_on_circle(center, radius - arc_width * 0.9, tick_angle)
+            outer = point_on_circle(center, radius + arc_width * 0.1, tick_angle)
+            painter.setPen(QtGui.QPen(QtGui.QColor("#333333"), 2))
+            painter.drawLine(inner, outer)
+
+        value_angle = angle_for_db(self.value)
+        needle_end = point_on_circle(center, radius - arc_width * 0.6, value_angle)
         painter.setPen(QtGui.QPen(QtGui.QColor("#111111"), 4))
-        painter.drawLine(QtCore.QPointF(value_x, rect.top()), QtCore.QPointF(value_x, rect.bottom()))
+        painter.drawLine(center, needle_end)
+        painter.setBrush(QtGui.QBrush(QtGui.QColor("#111111")))
+        painter.drawEllipse(center, 6, 6)
 
         painter.setPen(QtGui.QColor("#111111"))
         painter.setFont(QtGui.QFont("Arial", 24, QtGui.QFont.Bold))
